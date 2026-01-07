@@ -1,0 +1,384 @@
+import React, { useState, useEffect } from 'react';
+import { Wallet, Plus, Trash2, Check, X, Calendar, DollarSign, Tag, TrendingUp, TrendingDown, CreditCard, PiggyBank, Filter } from 'lucide-react';
+
+export default function AppContas() {
+  const [contas, setContas] = useState([]);
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [filtro, setFiltro] = useState('todas');
+  const [novaConta, setNovaConta] = useState({
+    descricao: '',
+    valor: '',
+    vencimento: '',
+    categoria: 'alimentacao',
+    tipo: 'despesa',
+    paga: false
+  });
+
+  // Carregar dados do storage ao iniciar
+  useEffect(() => {
+    carregarContas();
+  }, []);
+
+  const carregarContas = async () => {
+    try {
+      const result = await window.storage.get('contas');
+      if (result && result.value) {
+        setContas(JSON.parse(result.value));
+      }
+    } catch (error) {
+      console.log('Nenhuma conta salva ainda');
+    }
+  };
+
+  const salvarContas = async (novasContas) => {
+    try {
+      await window.storage.set('contas', JSON.stringify(novasContas));
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+    }
+  };
+
+  const adicionarConta = () => {
+    if (!novaConta.descricao || !novaConta.valor) {
+      alert('Preencha a descrição e o valor!');
+      return;
+    }
+
+    const conta = {
+      id: Date.now(),
+      ...novaConta,
+      valor: parseFloat(novaConta.valor),
+      dataCriacao: new Date().toISOString()
+    };
+
+    const atualizadas = [...contas, conta];
+    setContas(atualizadas);
+    salvarContas(atualizadas);
+    
+    setNovaConta({
+      descricao: '',
+      valor: '',
+      vencimento: '',
+      categoria: 'alimentacao',
+      tipo: 'despesa',
+      paga: false
+    });
+    setMostrarForm(false);
+  };
+
+  const removerConta = (id) => {
+    const atualizadas = contas.filter(c => c.id !== id);
+    setContas(atualizadas);
+    salvarContas(atualizadas);
+  };
+
+  const alternarPaga = (id) => {
+    const atualizadas = contas.map(c => 
+      c.id === id ? { ...c, paga: !c.paga } : c
+    );
+    setContas(atualizadas);
+    salvarContas(atualizadas);
+  };
+
+  const categorias = {
+    alimentacao: { nome: 'Alimentação', icon: '🍔' },
+    transporte: { nome: 'Transporte', icon: '🚗' },
+    moradia: { nome: 'Moradia', icon: '🏠' },
+    saude: { nome: 'Saúde', icon: '💊' },
+    lazer: { nome: 'Lazer', icon: '🎮' },
+    educacao: { nome: 'Educação', icon: '📚' },
+    outros: { nome: 'Outros', icon: '📦' },
+    salario: { nome: 'Salário', icon: '💰' },
+    freelance: { nome: 'Freelance', icon: '💼' }
+  };
+
+  const contasFiltradas = contas.filter(c => {
+    if (filtro === 'todas') return true;
+    if (filtro === 'pagas') return c.paga;
+    if (filtro === 'pendentes') return !c.paga;
+    if (filtro === 'receitas') return c.tipo === 'receita';
+    if (filtro === 'despesas') return c.tipo === 'despesa';
+    return true;
+  });
+
+  const totalReceitas = contas
+    .filter(c => c.tipo === 'receita' && c.paga)
+    .reduce((sum, c) => sum + c.valor, 0);
+
+  const totalDespesas = contas
+    .filter(c => c.tipo === 'despesa' && c.paga)
+    .reduce((sum, c) => sum + c.valor, 0);
+
+  const saldo = totalReceitas - totalDespesas;
+
+  const despesasPendentes = contas
+    .filter(c => c.tipo === 'despesa' && !c.paga)
+    .reduce((sum, c) => sum + c.valor, 0);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 pb-20">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center gap-3 mb-6">
+            <Wallet size={32} />
+            <h1 className="text-2xl font-bold">Minhas Contas</h1>
+          </div>
+
+          {/* Cards de Resumo */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white/20 backdrop-blur rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp size={20} />
+                <span className="text-sm">Receitas</span>
+              </div>
+              <p className="text-2xl font-bold">R$ {totalReceitas.toFixed(2)}</p>
+            </div>
+
+            <div className="bg-white/20 backdrop-blur rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown size={20} />
+                <span className="text-sm">Despesas</span>
+              </div>
+              <p className="text-2xl font-bold">R$ {totalDespesas.toFixed(2)}</p>
+            </div>
+
+            <div className={`backdrop-blur rounded-xl p-4 ${saldo >= 0 ? 'bg-green-500/30' : 'bg-red-500/30'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <PiggyBank size={20} />
+                <span className="text-sm">Saldo</span>
+              </div>
+              <p className="text-2xl font-bold">R$ {saldo.toFixed(2)}</p>
+            </div>
+          </div>
+
+          {despesasPendentes > 0 && (
+            <div className="mt-4 bg-yellow-500/30 backdrop-blur rounded-xl p-3 text-sm">
+              ⚠️ Você tem <strong>R$ {despesasPendentes.toFixed(2)}</strong> em contas pendentes
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto p-4">
+        {/* Filtros */}
+        <div className="bg-white rounded-xl shadow-md p-4 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Filter size={18} className="text-purple-600" />
+            <span className="font-semibold text-gray-700">Filtrar por:</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['todas', 'pendentes', 'pagas', 'receitas', 'despesas'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFiltro(f)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  filtro === f
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Formulário */}
+        {mostrarForm && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-4">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Nova Conta</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setNovaConta({...novaConta, tipo: 'despesa'})}
+                    className={`flex-1 py-2 rounded-lg font-medium ${
+                      novaConta.tipo === 'despesa'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    Despesa
+                  </button>
+                  <button
+                    onClick={() => setNovaConta({...novaConta, tipo: 'receita'})}
+                    className={`flex-1 py-2 rounded-lg font-medium ${
+                      novaConta.tipo === 'receita'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    Receita
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descrição
+                </label>
+                <input
+                  type="text"
+                  value={novaConta.descricao}
+                  onChange={(e) => setNovaConta({...novaConta, descricao: e.target.value})}
+                  placeholder="Ex: Conta de luz"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Valor (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={novaConta.valor}
+                    onChange={(e) => setNovaConta({...novaConta, valor: e.target.value})}
+                    placeholder="0,00"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vencimento
+                  </label>
+                  <input
+                    type="date"
+                    value={novaConta.vencimento}
+                    onChange={(e) => setNovaConta({...novaConta, vencimento: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Categoria
+                </label>
+                <select
+                  value={novaConta.categoria}
+                  onChange={(e) => setNovaConta({...novaConta, categoria: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                >
+                  {Object.entries(categorias).map(([key, cat]) => (
+                    <option key={key} value={key}>
+                      {cat.icon} {cat.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={adicionarConta}
+                  className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition"
+                >
+                  Adicionar
+                </button>
+                <button
+                  onClick={() => setMostrarForm(false)}
+                  className="px-6 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de Contas */}
+        <div className="space-y-3">
+          {contasFiltradas.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-md p-8 text-center text-gray-500">
+              <Wallet size={48} className="mx-auto mb-3 opacity-50" />
+              <p>Nenhuma conta cadastrada ainda.</p>
+              <p className="text-sm mt-1">Clique no botão + para adicionar</p>
+            </div>
+          ) : (
+            contasFiltradas.map(conta => (
+              <div
+                key={conta.id}
+                className={`bg-white rounded-xl shadow-md p-4 ${
+                  conta.paga ? 'opacity-60' : ''
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`p-3 rounded-full ${
+                    conta.tipo === 'receita' 
+                      ? 'bg-green-100 text-green-600' 
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    {conta.tipo === 'receita' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h3 className={`font-semibold text-gray-800 ${conta.paga ? 'line-through' : ''}`}>
+                          {conta.descricao}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            {categorias[conta.categoria].icon} {categorias[conta.categoria].nome}
+                          </span>
+                          {conta.vencimento && (
+                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                              <Calendar size={12} />
+                              {new Date(conta.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${
+                        conta.tipo === 'receita' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {conta.tipo === 'receita' ? '+' : '-'} R$ {conta.valor.toFixed(2)}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => alternarPaga(conta.id)}
+                        className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium transition ${
+                          conta.paga
+                            ? 'bg-gray-200 text-gray-700'
+                            : 'bg-green-500 text-white hover:bg-green-600'
+                        }`}
+                      >
+                        {conta.paga ? <X size={16} /> : <Check size={16} />}
+                        {conta.paga ? 'Marcar pendente' : 'Marcar como paga'}
+                      </button>
+                      <button
+                        onClick={() => removerConta(conta.id)}
+                        className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-600 rounded-lg text-sm font-medium hover:bg-red-200 transition"
+                      >
+                        <Trash2 size={16} />
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Botão Flutuante */}
+      <button
+        onClick={() => setMostrarForm(!mostrarForm)}
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition transform hover:scale-110"
+      >
+        {mostrarForm ? <X size={28} /> : <Plus size={28} />}
+      </button>
+    </div>
+  );
+}
